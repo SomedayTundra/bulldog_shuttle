@@ -41,6 +41,13 @@ const columns = col.columns([
     header: 'Duration',
     cell: (c) => <span className="font-semibold tabular-nums">{formatDuration(c.getValue())}</span>,
   }),
+  col.accessor('fareFrom', {
+    header: 'Fare',
+    cell: (c) => {
+      const v = c.getValue()
+      return v == null ? '—' : <span className="tabular-nums">${v.toFixed(0)}</span>
+    },
+  }),
   col.accessor((t) => t.origin.short, {
     id: 'from',
     header: 'From',
@@ -65,13 +72,6 @@ const columns = col.columns([
     cell: (c) => (
       <span className="font-mono text-xs whitespace-nowrap">{c.getValue().join(' → ')}</span>
     ),
-  }),
-  col.accessor('fareFrom', {
-    header: 'Fare',
-    cell: (c) => {
-      const v = c.getValue()
-      return v == null ? '—' : <span className="tabular-nums">${v.toFixed(0)}</span>
-    },
   }),
 ])
 
