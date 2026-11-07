@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Mascot } from '@/components/mascot'
 import { CityPicker } from '@/components/city-picker'
 import { TripDetails } from '@/components/trip-details'
-import { TripsTable } from '@/components/trips-table'
+import { TripsTable, type SortingState } from '@/components/trips-table'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -30,6 +30,8 @@ const DEFAULT_PREFS: Preferences = {
   minimizeStops: true,
   preferShortest: true,
 }
+
+const DEFAULT_SORTING: SortingState = [{ id: 'depart', desc: false }]
 
 const isCityId = (v: unknown): v is string => typeof v === 'string' && v.includes('|')
 
@@ -79,6 +81,14 @@ export default function App() {
   const [date, setDate] = useState(today)
   const [prefs, setPrefs] = useStoredState('prefs', DEFAULT_PREFS, isPreferences)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Lives here (not in TripsTable) so a filter change keeps it; a new search resets it.
+  const [sorting, setSorting] = useState<SortingState>(DEFAULT_SORTING)
+  const searchKey = `${from}>${to}@${date}`
+  const [sortedFor, setSortedFor] = useState(searchKey)
+  if (sortedFor !== searchKey) {
+    setSortedFor(searchKey)
+    setSorting(DEFAULT_SORTING)
+  }
   const setPref = <K extends keyof Preferences>(k: K, v: Preferences[K]) =>
     setPrefs((p) => ({ ...p, [k]: v }))
 
@@ -217,12 +227,19 @@ export default function App() {
                   }
                 />
               ) : (
-                <TripsTable trips={trips} selectedId={selected?.id ?? null} onSelect={(t) => setSelectedId(t.id)} />
+                <TripsTable
+                  trips={trips}
+                  selectedId={selected?.id ?? null}
+                  onSelect={(t) => setSelectedId(t.id)}
+                  sorting={sorting}
+                  onSortingChange={setSorting}
+                />
               )}
             </Card>
             {trips.length > 0 && (
               <p className="text-xs text-muted-foreground">
-                Top row is the best match for your preferences. Click any trip for step-by-step instructions.
+                The highlighted row is the best match for your preferences. Click a column header to sort, or any trip for
+                step-by-step instructions.
               </p>
             )}
           </section>

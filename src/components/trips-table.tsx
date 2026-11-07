@@ -1,4 +1,12 @@
-import { createColumnHelper, tableFeatures, useTable } from '@tanstack/react-table'
+import {
+  createColumnHelper,
+  createSortedRowModel,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
+  type SortingState,
+} from '@tanstack/react-table'
+import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -11,8 +19,10 @@ import {
 import { formatDuration, formatTime, type Trip } from '@/lib/trips'
 import { cn } from '@/lib/utils'
 
-const features = tableFeatures({})
+const features = tableFeatures({ rowSortingFeature, sortedRowModel: createSortedRowModel() })
 const col = createColumnHelper<typeof features, Trip>()
+
+export type { SortingState }
 
 export function TransferBadge({ trip }: { trip: Trip }) {
   if (trip.stops === 0) {
@@ -41,8 +51,10 @@ const columns = col.columns([
     header: 'Duration',
     cell: (c) => <span className="font-semibold tabular-nums">{formatDuration(c.getValue())}</span>,
   }),
-  col.accessor('fareFrom', {
+  col.accessor((t) => t.fareFrom ?? undefined, {
+    id: 'fare',
     header: 'Fare',
+    sortUndefined: 'last',
     cell: (c) => {
       const v = c.getValue()
       return v == null ? '—' : <span className="tabular-nums">${v.toFixed(0)}</span>
@@ -58,19 +70,20 @@ const columns = col.columns([
     header: 'To',
     cell: (c) => <span className="inline-block min-w-32 whitespace-normal">{c.getValue()}</span>,
   }),
-  col.display({
-    id: 'type',
+  col.accessor('transfers', {
     header: 'Transfers',
+    sortFn: (a, b) => a.original.transfers - b.original.transfers || a.original.stops - b.original.stops,
     cell: (c) => <TransferBadge trip={c.row.original} />,
   }),
   col.accessor('stops', {
     header: 'Stops',
     cell: (c) => <span className="tabular-nums">{c.getValue()}</span>,
   }),
-  col.accessor('routes', {
+  col.accessor((t) => t.routes.join(' → '), {
+    id: 'route',
     header: 'Route',
     cell: (c) => (
-      <span className="font-mono text-xs whitespace-nowrap">{c.getValue().join(' → ')}</span>
+      <span className="font-mono text-xs whitespace-nowrap">{c.getValue()}</span>
     ),
   }),
 ])
@@ -79,28 +92,58 @@ export function TripsTable({
   trips,
   selectedId,
   onSelect,
+  sorting,
+  onSortingChange,
 }: {
   trips: Trip[]
   selectedId: string | null
   onSelect: (trip: Trip) => void
+  sorting: SortingState
+  onSortingChange: (updater: SortingState | ((old: SortingState) => SortingState)) => void
 }) {
-  const table = useTable({ features, columns, data: trips, getRowId: (t) => t.id })
+  const table = useTable({
+    features,
+    columns,
+    data: trips,
+    getRowId: (t) => t.id,
+    sortDescFirst: false,
+    state: { sorting },
+    onSortingChange,
+  })
+  // The incoming order ranks trips by the user's preferences; keep marking the
+  // best match even when a column sort moves it.
+  const bestId = trips[0]?.id
 
   return (
     <Table>
       <TableHeader className="bg-maroon">
         {table.getHeaderGroups().map((hg) => (
           <TableRow key={hg.id} className="hover:bg-transparent">
-            {hg.headers.map((h) => (
-              <TableHead key={h.id} className="font-semibold text-gold">
-                <table.FlexRender header={h} />
-              </TableHead>
-            ))}
+            {hg.headers.map((h) => {
+              const sorted = h.column.getIsSorted()
+              const SortIcon = sorted === 'asc' ? ArrowUpIcon : sorted === 'desc' ? ArrowDownIcon : ArrowUpDownIcon
+              return (
+                <TableHead
+                  key={h.id}
+                  className="font-semibold text-gold"
+                  aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
+                >
+                  <button
+                    type="button"
+                    onClick={h.column.getToggleSortingHandler()}
+                    className="-mx-1 inline-flex items-center gap-1 rounded px-1 hover:text-white focus-visible:outline-2 focus-visible:outline-gold"
+                  >
+                    <table.FlexRender header={h} />
+                    <SortIcon className={cn('size-3.5', !sorted && 'opacity-40')} />
+                  </button>
+                </TableHead>
+              )
+            })}
           </TableRow>
         ))}
       </TableHeader>
       <TableBody>
-        {table.getRowModel().rows.map((row, i) => {
+        {table.getRowModel().rows.map((row) => {
           const selected = row.id === selectedId
           return (
             <TableRow
@@ -111,7 +154,7 @@ export function TripsTable({
               aria-selected={selected}
               className={cn(
                 'cursor-pointer focus-visible:outline-2 focus-visible:outline-gold',
-                i === 0 && 'bg-gold-soft/50',
+                row.id === bestId && 'bg-gold-soft/50',
                 selected && 'bg-gold-soft hover:bg-gold-soft shadow-[inset_4px_0_0_var(--umd-maroon)]',
                 !row.original.bookable && 'opacity-50',
               )}
