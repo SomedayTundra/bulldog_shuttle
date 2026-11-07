@@ -18,10 +18,31 @@ import {
   fetchCities,
   fetchTrips,
   formatDate,
-  tomorrow,
+  today,
   type Preferences,
   type TimeOfDay,
 } from '@/lib/trips'
+import { useStoredState } from '@/lib/use-stored-state'
+
+const DEFAULT_PREFS: Preferences = {
+  timeOfDay: 'any',
+  allowTransfers: false,
+  minimizeStops: true,
+  preferShortest: true,
+}
+
+const isCityId = (v: unknown): v is string => typeof v === 'string' && v.includes('|')
+
+const isPreferences = (v: unknown): v is Preferences => {
+  if (typeof v !== 'object' || v === null) return false
+  const p = v as Record<string, unknown>
+  return (
+    TIME_OF_DAY.some((t) => t.value === p.timeOfDay) &&
+    typeof p.allowTransfers === 'boolean' &&
+    typeof p.minimizeStops === 'boolean' &&
+    typeof p.preferShortest === 'boolean'
+  )
+}
 
 function Toggle({
   id,
@@ -53,15 +74,10 @@ function Toggle({
 }
 
 export default function App() {
-  const [from, setFrom] = useState('Minneapolis|MN')
-  const [to, setTo] = useState('Duluth|MN')
-  const [date, setDate] = useState(tomorrow)
-  const [prefs, setPrefs] = useState<Preferences>({
-    timeOfDay: 'any',
-    allowTransfers: true,
-    minimizeStops: true,
-    preferShortest: true,
-  })
+  const [from, setFrom] = useStoredState('from', 'Duluth|MN', isCityId)
+  const [to, setTo] = useStoredState('to', 'Minneapolis|MN', isCityId)
+  const [date, setDate] = useState(today)
+  const [prefs, setPrefs] = useStoredState('prefs', DEFAULT_PREFS, isPreferences)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const setPref = <K extends keyof Preferences>(k: K, v: Preferences[K]) =>
     setPrefs((p) => ({ ...p, [k]: v }))

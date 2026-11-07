@@ -76,9 +76,8 @@ export function applyPreferences(trips: Trip[], prefs: Preferences) {
   })
 }
 
-export function tomorrow() {
+export function today() {
   const d = new Date()
-  d.setDate(d.getDate() + 1)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
